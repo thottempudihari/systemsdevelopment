@@ -1,0 +1,1 @@
+alert('Linked js file is working')

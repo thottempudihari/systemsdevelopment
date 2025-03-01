@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find My Location</title>
+</head>
+<body>
+    <h1>Find My Location</h1>
+    <p>Enter your full street address, including your city and state:</p>
+    <input id="addr" type="text" placeholder="Enter Address"/>
+    
+    <p>Choose a Census Bureau address data source:</p>
+    <select id="benchmarks">
+        <option>Loading...</option>
+    </select>
+
+    <input id="submit" type="button" value="Submit"/>
+    
+    <div id="infoContainer"></div>
+    <div id="mapContainer"></div>
+
+    <script>
+        const bn = document.getElementById("benchmarks");
+
+        // Fetch benchmark data from Census API
+        const getBenchmarks = async () => {
+            try {
+                let req = await fetch("https://geocoding.geo.census.gov/geocoder/benchmarks", { method: "GET" });
+                let jsonRes = await req.json();
+                let opts = "";
+                
+                jsonRes.benchmarks.forEach((benchmark) => {
+                    opts += `<option value="${benchmark.id}">${benchmark.benchmarkName}</option>`;
+                });
+
+                bn.innerHTML = opts;
+            } catch (error) {
+                console.error("Error fetching benchmarks:", error);
+            }
+        };
+
+        window.onload = getBenchmarks;
+
+        document.getElementById("submit").addEventListener("click", async function() {
+            const address = document.getElementById("addr").value.trim();
+            const benchmark = bn.value;
+
+            if (!address) {
+                alert("Please enter a valid address.");
+                return;
+            }
+
+            // Construct API request
+            const geocodeURL = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(address)}&benchmark=${benchmark}&format=json`;
+
+            try {
+                const response = await fetch(geocodeURL);
+                const data = await response.json();
+
+                if (data.result.addressMatches.length === 0) {
+                    document.getElementById("infoContainer").innerHTML = "<p>No matching address found.</p>";
+                    return;
+                }
+
+                // Extract matched address and coordinates
+                const matchedAddress = data.result.addressMatches[0].matchedAddress;
+                const { x: longitude, y: latitude } = data.result.addressMatches[0].coordinates;
+
+                // Display results
+                document.getElementById("infoContainer").innerHTML = `
+                    <h2>Matched Address:</h2>
+                    <p>${matchedAddress}</p>
+                    <h2>Coordinates:</h2>
+                    <p>Latitude: ${latitude}, Longitude: ${longitude}</p>
+                `;
+
+                // Load Google Maps
+                const googleMapsAPIKey = "AIzaSyAyvWMWA82-To-mOGv_oacqD0osXq-Rqfo";
+                document.getElementById("mapContainer").innerHTML = `
+                    <iframe
+                        width="600"
+                        height="450"
+                        style="border:0"
+                        loading="lazy"
+                        allowfullscreen
+                        referrerpolicy="no-referrer-when-downgrade"
+                        src="https://www.google.com/maps/embed/v1/place?key=${googleMapsAPIKey}
+                        &q=${encodeURIComponent(matchedAddress)}
+                        &center=${latitude},${longitude}&zoom=14">
+                    </iframe>
+                `;
+
+            } catch (error) {
+                console.error("Error fetching geolocation:", error);
+                document.getElementById("infoContainer").innerHTML = "<p>Error fetching data. Please try again.</p>";
+            }
+        });
+    </script>
+</body>
+</html>
